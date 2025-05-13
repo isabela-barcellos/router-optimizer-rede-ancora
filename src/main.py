@@ -1,6 +1,7 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import networkx as nx
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,7 +20,7 @@ G = nx.Graph()  # Criando o grafo
 for ponto in pontos:
     G.add_node(ponto['nome'], pos=ponto['coordenadas'])
 
-# Conecta os pontos com arestas ponderadas pela distância
+# Conecta os pontos com arestas pela distância
 for i in range(len(pontos)):
     for j in range(i + 1, len(pontos)):
         ponto1 = pontos[i]
@@ -48,41 +49,36 @@ print(f"Distância total: {distancia:.2f} km")
 pos_original = nx.get_node_attributes(G, 'pos')
 pos = nx.spring_layout(G, k=0.8, iterations=200, pos=pos_original, fixed=[comprador['nome']])
 labels = nx.get_edge_attributes(G, 'weight')
+
 fig, ax = plt.subplots(figsize=(16, 12))
 
+# Nós padrão
 nx.draw_networkx_nodes(G, pos, node_size=500, node_color='skyblue', ax=ax)
 
-weights = list(labels.values())
-norm = plt.Normalize(min(weights), max(weights))
-edge_colors = plt.cm.viridis(norm(weights))
-
-nx.draw_networkx_edges(G, pos, edge_color=edge_colors, edge_cmap=plt.cm.viridis, width=2, alpha=0.7, ax=ax)
+# Arestas padrão (todas em cinza)
+nx.draw_networkx_edges(G, pos, edge_color='gray', width=1, alpha=0.5, ax=ax)
 
 # Destaca o menor caminho em vermelho
 caminho_edges = list(zip(caminho[:-1], caminho[1:]))
-nx.draw_networkx_edges(G, pos, edgelist=caminho_edges, edge_color='red', width=3, ax=ax)
+nx.draw_networkx_edges(G, pos, edgelist=caminho_edges, edge_color='red', width=2.5, ax=ax)
 
-# Barra de cores
-sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=norm)
-sm.set_array([])
-cbar = fig.colorbar(sm, ax=ax, shrink=0.7, pad=0.02)
-cbar.set_label('Distância (km)', fontsize=12)
-
+# Rótulos dos nós
 nx.draw_networkx_labels(G, pos, font_size=8, font_weight='bold', ax=ax)
 
-# Labels das distâncias
+# Labels das distâncias (em todas as arestas)
 labels_todas = {(u, v): f"{d['weight']:.2f} km" for u, v, d in G.edges(data=True)}
 nx.draw_networkx_edge_labels(
     G, pos,
     edge_labels=labels_todas,
-    font_color='red',
+    font_color='black',
     font_size=6,
     label_pos=0.3,
     ax=ax,
     rotate=False
 )
 
-ax.set_title("Mapa de Comprador e Lojas - Menor Caminho em Vermelho", fontsize=18, fontweight='bold')
+# Título e layout
+ax.set_title("Mapa de Comprador e Lojas - Menor Caminho em Vermelho", fontsize=16, fontweight='bold')
 plt.axis('off')
 plt.tight_layout()
 plt.show()
