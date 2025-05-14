@@ -24,7 +24,7 @@ Este projeto foca na implementação de **Programação Dinâmica** e **Grafos**
    pip install -r requirements.txt
    python main.py
 
-
+## Integrantes do grupo
 - Beatriz Dantas Sampaio - 554044
 - Giovanna Franco Gaudino Rodrigues - 553701
 - Isabela Barcellos Freire - 553746
