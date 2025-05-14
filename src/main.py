@@ -1,84 +1,84 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import networkx as nx
 import pandas as pd
 import matplotlib.pyplot as plt
 from data.lojas import lojas
-from src.utils import calcular_distancia
+from geopy.distance import geodesic
+from itertools import permutations
+from data.entregas import enderecos 
 
+#Exercício 1
 # Comprador e sua localização
 comprador = {'nome': 'Comprador -SP - Av Paulista', 'coordenadas': (-23.561684, -46.625378)}
-
-# Lista com as lojas e o comprador
 pontos = [comprador] + lojas
 
-G = nx.Graph()  # Criando o grafo
-
-# Adiciona os nós com posições
+# Criar grafo e conectar pontos com distância geográfica
+G = nx.Graph()
 for ponto in pontos:
     G.add_node(ponto['nome'], pos=ponto['coordenadas'])
 
-# Conecta os pontos com arestas pela distância
 for i in range(len(pontos)):
     for j in range(i + 1, len(pontos)):
-        ponto1 = pontos[i]
-        ponto2 = pontos[j]
-        distancia = calcular_distancia(ponto1['coordenadas'], ponto2['coordenadas'])
-        G.add_edge(ponto1['nome'], ponto2['nome'], weight=distancia)
+        distancia = round(geodesic(pontos[i]['coordenadas'], pontos[j]['coordenadas']).km, 2)
+        G.add_edge(pontos[i]['nome'], pontos[j]['nome'], weight=distancia)
 
-# Função para encontrar o menor caminho do comprador até a loja mais próxima
-def encontrar_menor_caminho(grafo, comprador_nome, lojas):
-    loja_mais_proxima = min(lojas, key=lambda loja: grafo[comprador_nome][loja['nome']]['weight'])
-    caminho = nx.shortest_path(grafo, source=comprador_nome, target=loja_mais_proxima['nome'], weight='weight')
-    distancia = nx.shortest_path_length(grafo, source=comprador_nome, target=loja_mais_proxima['nome'], weight='weight')
-    return caminho, distancia
+# Encontrar a loja mais próxima
+loja_mais_proxima = min(lojas, key=lambda loja: G[comprador['nome']][loja['nome']]['weight'])
+caminho = nx.shortest_path(G, source=comprador['nome'], target=loja_mais_proxima['nome'], weight='weight')
+distancia = nx.shortest_path_length(G, source=comprador['nome'], target=loja_mais_proxima['nome'], weight='weight')
 
-# Encontra o menor caminho
-caminho, distancia = encontrar_menor_caminho(G, comprador['nome'], lojas)
-
-# Exibe o caminho e a distância
+# Exibir resultado
 print("\nMenor caminho até a loja mais próxima:")
-for i in range(len(caminho) - 1):
-    print(f"{caminho[i]} -> {caminho[i+1]}")
-print(f"Distância total: {distancia:.2f} km")
+print(" -> ".join(caminho))
+print(f"Distância total: {distancia:.2f} km\n")
 
-# -------------------- PLOTAGEM --------------------
+# Visualização com distâncias nas arestas
+pos = nx.spring_layout(G)
+nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=800)
+nx.draw_networkx_edges(G, pos, edgelist=list(zip(caminho[:-1], caminho[1:])), edge_color='red', width=2)
 
-pos_original = nx.get_node_attributes(G, 'pos')
-pos = nx.spring_layout(G, k=0.8, iterations=200, pos=pos_original, fixed=[comprador['nome']])
+# Adiciona rótulos de distância nas arestas
 labels = nx.get_edge_attributes(G, 'weight')
+nx.draw_networkx_edge_labels(G, pos, edge_labels={k: f"{v:.2f} km" for k, v in labels.items()}, font_size=8)
 
-fig, ax = plt.subplots(figsize=(16, 12))
+plt.show()
 
-# Nós padrão
-nx.draw_networkx_nodes(G, pos, node_size=500, node_color='skyblue', ax=ax)
+#Exercício 2  
+# Criar grafo e conectar pontos com distância geográfica
+G = nx.Graph()
+for nome1, coord1 in enderecos.items():
+    for nome2, coord2 in enderecos.items():
+        if nome1 != nome2:
+            distancia = round(geodesic(coord1, coord2).km, 2)
+            G.add_edge(nome1, nome2, weight=distancia)
 
-# Arestas padrão (todas em cinza)
-nx.draw_networkx_edges(G, pos, edge_color='gray', width=1, alpha=0.5, ax=ax)
+# Encontrar a melhor rota de entrega
+entregas = [e for e in enderecos if e != 'Origem']
+melhor_rota = None
+menor_distancia = float('inf')
 
-# Destaca o menor caminho em vermelho
-caminho_edges = list(zip(caminho[:-1], caminho[1:]))
-nx.draw_networkx_edges(G, pos, edgelist=caminho_edges, edge_color='red', width=2.5, ax=ax)
+for perm in permutations(entregas):
+    rota = ['Origem'] + list(perm)
+    distancia_total = sum(nx.dijkstra_path_length(G, rota[i], rota[i+1], weight='weight') for i in range(len(rota) - 1))
 
-# Rótulos dos nós
-nx.draw_networkx_labels(G, pos, font_size=8, font_weight='bold', ax=ax)
+    if distancia_total < menor_distancia:
+        menor_distancia = distancia_total
+        melhor_rota = rota
 
-# Labels das distâncias (em todas as arestas)
-labels_todas = {(u, v): f"{d['weight']:.2f} km" for u, v, d in G.edges(data=True)}
-nx.draw_networkx_edge_labels(
-    G, pos,
-    edge_labels=labels_todas,
-    font_color='black',
-    font_size=6,
-    label_pos=0.3,
-    ax=ax,
-    rotate=False
-)
+# Exibir resultado
+print("\nMelhor caminho para realizar a entrega:")
+print(" -> ".join(melhor_rota))
+print(f"Distância total: {menor_distancia:.2f} km\n")
 
-# Título e layout
-ax.set_title("Mapa de Comprador e Lojas - Menor Caminho em Vermelho", fontsize=16, fontweight='bold')
-plt.axis('off')
-plt.tight_layout()
+# Visualização com distâncias nas arestas
+pos = nx.spring_layout(G)
+nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=800)
+nx.draw_networkx_edges(G, pos, edgelist=list(zip(melhor_rota[:-1], melhor_rota[1:])), edge_color='red', width=2)
+
+# Adiciona rótulos de distância nas arestas
+labels = nx.get_edge_attributes(G, 'weight')
+nx.draw_networkx_edge_labels(G, pos, edge_labels={k: f"{v:.2f} km" for k, v in labels.items()}, font_size=8)
+
 plt.show()
